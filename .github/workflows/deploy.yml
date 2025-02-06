@@ -7,52 +7,57 @@ on:
 permissions:
   pull-requests: write
 
+
 jobs:
-  cost-analysis:
+  analyze_pr:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Call FastAPI Webhook for Cost Analysis
-        id: cost_analysis
+      - name: Send PR details to FastAPI server
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_STATUS: ${{ github.event.action }}
+          REPO_URL: ${{ github.event.pull_request.head.repo.clone_url }}  # Repository clone URL
         run: |
-          API_URL="https://1cb1-2403-a080-833-43a8-4c63-63e7-9150-76f.ngrok-free.app/webhook"
-          RESPONSE=$(curl -X POST "$API_URL" -H "Content-Type: application/json" -d '{
-            "repo_url": "${{ github.event.pull_request.head.repo.clone_url }}",
-            "pr_number": "${{ github.event.pull_request.number }}",
-            "pr_url": "${{ github.event.pull_request.html_url }}",
-            "pr_title": "${{ github.event.pull_request.title }}",
-            "pr_author": "${{ github.event.pull_request.user.login }}",
-            "pr_status": "${{ github.event.pull_request.state }}"
-          }')
+          import requests
+          import os
+          import json
 
-          echo "API_RESPONSE=$(echo "$RESPONSE" | jq -c)" >> $GITHUB_ENV
+          payload = {
+              "repo_url": os.environ['REPO_URL'],
+              "pr_number": os.environ['PR_NUMBER'],
+              "pr_url": os.environ['PR_URL'],
+              "pr_title": os.environ['PR_TITLE'],
+              "pr_author": os.environ['PR_AUTHOR'],
+              "pr_status": os.environ['PR_STATUS']
+          }
 
-      - name: Parse JSON and Post Comments
+          response = requests.post("https://1cb1-2403-a080-833-43a8-4c63-63e7-9150-76f.ngrok-free.app/webhook", json=payload)
+          response_text = response.text
+
+          with open(os.environ['GITHUB_ENV'], "a") as env_file:
+              env_file.write(f"RESPONSE_TEXT={response_text}\n")
+        shell: python
+
+      - name: Post response as a comment on PR
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RESPONSE_TEXT: ${{ env.RESPONSE_TEXT }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
         run: |
-          echo "$API_RESPONSE" | jq -c '.results | to_entries[]' | while read -r line; do
-            FILE_PATH=$(echo "$line" | jq -r '.key')
-            TITLE=$(echo "$line" | jq -r '.value.title')
-            COST_ANALYSIS=$(echo "$line" | jq -r '.value.cost_analysis')
+          FORMATTED_RESPONSE=$(echo "$RESPONSE_TEXT" | jq -r 'to_entries | map("\n**\(.key):**\n\(.value)") | join("\n")')
 
-            COMMENT_BODY="**Cost Analysis Result for \`$FILE_PATH\`**\n\n"
-            COMMENT_BODY+="<details>\n"
-            COMMENT_BODY+="<summary> $TITLE </summary>\n\n"
-            COMMENT_BODY+="$COST_ANALYSIS\n\n"
-            COMMENT_BODY+="</details>"
-            
-            curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github.v3+json" \
-              -d "{\"body\": \"$COMMENT_BODY\"}" \
-              "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/issues/$PR_NUMBER/comments"
-          done
+          JSON_PAYLOAD=$(jq -n --arg body "**Cost Analysis Result:**$FORMATTED_RESPONSE" '{body: $body}')
+
+          curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/issues/$PR_NUMBER/comments \
+          -d "$JSON_PAYLOAD"
+
 
 
 
