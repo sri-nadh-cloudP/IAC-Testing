@@ -18,7 +18,7 @@ jobs:
       - name: Call FastAPI Webhook for Cost Analysis
         id: cost_analysis
         run: |
-          API_URL="http://your-fastapi-server.com/webhook"
+          API_URL="https://1cb1-2403-a080-833-43a8-4c63-63e7-9150-76f.ngrok-free.app/webhook"
           RESPONSE=$(curl -X POST "$API_URL" -H "Content-Type: application/json" -d '{
             "repo_url": "${{ github.event.pull_request.head.repo.clone_url }}",
             "pr_number": "${{ github.event.pull_request.number }}",
