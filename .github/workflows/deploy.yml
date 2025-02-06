@@ -1,0 +1,27 @@
+name: Trigger Webhook on PR, Merge, or Push
+
+on:
+  push:
+  pull_request:
+    types: [opened, synchronize, closed]
+
+jobs:
+  send_repo_url:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get Repository URL
+        run: echo "REPO_URL=https://github.com/${{ github.repository }}.git" >> $GITHUB_ENV
+
+      - name: Send POST request to server
+        id: post_request
+        run: |
+          RESPONSE=$(curl -s -X POST "https://1cb1-2403-a080-833-43a8-4c63-63e7-9150-76f.ngrok-free.app/webhook" \
+            -H "Content-Type: application/json" \
+            -d "{\"repo_url\": \"${REPO_URL}\"}")
+          echo "response_text=$RESPONSE" >> $GITHUB_ENV
+
+      - name: Show Response in Actions Log
+        run: |
+          echo "Server Response: $response_text"
+
+
