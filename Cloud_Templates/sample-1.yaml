@@ -61,7 +61,7 @@ Resources:
             Status: Enabled
             Prefix: ""
             Transitions:
-              - StorageClass: GLACIER
+              - StorageClass: GLACIER_IR
                 TransitionInDays: 30
             ExpirationInDays: 365
 
