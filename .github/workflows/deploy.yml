@@ -34,7 +34,7 @@ jobs:
               "pr_status": os.environ['PR_STATUS']
           }
 
-          response = requests.post("https://1cb1-2403-a080-833-43a8-4c63-63e7-9150-76f.ngrok-free.app/webhook", json=payload)
+          response = requests.post("https://e536-2403-a080-833-a1be-7cf7-a193-cfd5-cb39.ngrok-free.app/webhook", json=payload)
           response_text = response.text
 
           with open(os.environ['GITHUB_ENV'], "a") as env_file:
